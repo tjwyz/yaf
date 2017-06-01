@@ -1,0 +1,2 @@
+let globalModules = {};
+export{ globalModules }
