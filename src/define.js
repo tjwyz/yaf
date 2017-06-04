@@ -20,14 +20,22 @@ let define = (name, deps, factory) => {
     if (!name) {
         unexpected('must input a moduleId');
     }
-    let option = {
-    	name:name,
-    	deps:deps,
-    	factory:factory,
-    	state:1
-    };
-    let module = new Module(option);
-    globalModules[module.name] = module;
+	let option = {
+		name:name,
+		deps:deps,
+		factory:factory,
+		state:1
+	};
+	if(globalModules[name] && globalModules[name].state == 0){
+		//异步模块再次define来覆盖之前的占位module了
+		//特殊处理一下  把之前积压的caller继承过来
+		//并且， reDefine的模块代表之前被require了 
+		//立刻prepare!!!
+		option.caller = globalModules[name].caller
+
+	}
+	let module = new Module(option);
+	globalModules[name] = module;
 
 };
 export { define }

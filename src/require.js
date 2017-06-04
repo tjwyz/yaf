@@ -5,21 +5,21 @@ let require = (requireId, callback) =>{
         let option = {
             name:'IIFF'
             deps:[requireId],
-            factory:callback
+            factory:callback,
+            state:-1
         };
-        let module = new Module(option);
-    }
-
-    if (requireId instanceof Array) {
+    }else if (requireId instanceof Array) {
         let option = {
             name:'IIFF',
             deps:requireId,
-            factory:callback
+            factory:callback,
+            state:-1
         };
-        let module = new Module(option);
+    }else{
+        this.unexpected()
     }
+    let module = new Module(option)
+    module.modPrepare()
 }
-
-
 
 export {require}

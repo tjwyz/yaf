@@ -1,4 +1,4 @@
-import { createLocalRequire } from './require.js';
+import { require } from './require.js';
 import { globalModules } from './store.js';
 import { nativeAsyncRequire } from './async.js';
 
@@ -6,9 +6,11 @@ export class Module {
 	constructor(option){
 		this.name = option.name;
 		this.deps = option.deps || ['require', 'exports', 'module'];
-		this.caller = [];
+		this.notBuiltinDeps = this.notBuiltinDependce()
+		this.caller = option.caller || [];
 		this.factory = option.factory;
 
+		//MODULE_REQUIRE = -1
 		//MODULE_UNINIT = 0;
 		//MODULE_INIT = 1;
 		//MODULE_ANALYZED = 2;
@@ -16,14 +18,12 @@ export class Module {
 		this.state = option.state;
 		
 		//count deps but not consume default dep(['require', 'exports', 'module'])
-		this.depCount = 0;
+		this.depCount = this.notBuiltinDeps.length;
 
-		this.exports = {},
-		this.require = createLocalRequire(option.name)
+		this.exports = {};
+		this.require = require;
 
-		for(let item of this.deps){
-			(this.deps.indexOf(item) == -1) && this.depCount ++
-		}
+
 		Object.defineProperty(this, 'depCount', {
 			get() {
 				return depCount;
@@ -37,142 +37,111 @@ export class Module {
 			}
 		});
 
-		if(!this.state){
-			this.modInit()
-		}
-
 	}
 	//0=>1
+	//waiting for reDefine
+	//entrance: modPrepare->module.modInit()
 	modInit(){
-		//complete 
-		nativeAsyncRequire(this)
+		nativeAsyncRequire()
 	}
 	//1=>2
 	modPrepare(){
-	    var mod = globalModules[id];
-		if (!mod || modIs(id, MODULE_ANALYZED)) {
-		    return;
-		}
 
-		var deps = mod.deps;
-		var factory = mod.factory;
+		var deps = this.notBuiltinDeps;
+		var factory = this.factory;
 		var hardDependsCount = 0;
 
 		// 分析function body中的require
 		// 如果包含显式依赖声明，根据AMD规定和性能考虑，可以不分析factoryBody
-		if (typeof factory === 'function') {
-		    hardDependsCount = Math.min(factory.length, deps.length);
+		// if (typeof factory === 'function') {
+		//     hardDependsCount = Math.min(factory.length, deps.length);
 
-		    // If the dependencies argument is present, the module loader
-		    // SHOULD NOT scan for dependencies within the factory function.
-		    !mod.depsDec && factory.toString()
-		        .replace(/(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg, '')
-		        .replace(/require\(\s*(['"])([^'"]+)\1\s*\)/g,
-		            function ($0, $1, depId) {
-		                deps.push(depId);
-		            }
-		        );
+		//     // If the dependencies argument is present, the module loader
+		//     // SHOULD NOT scan for dependencies within the factory function.
+		//     !mod.depsDec && factory.toString()
+		//         .replace(/(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg, '')
+		//         .replace(/require\(\s*(['"])([^'"]+)\1\s*\)/g,
+		//             function ($0, $1, depId) {
+		//                 deps.push(depId);
+		//             }
+		//         );
+		// }
+
+		//Now ,Module already know amount of denpend
+		//MODULE_ANALYZED
+		this.state =  2;
+
+		//本来我就没依赖....
+		if(!this.depCount){
+			this.invokeFactory()
 		}
 
-		var requireModules = [];
-		var depResources = [];
-		each(deps, function (depId, index) {
-		    var idInfo = parseId(depId);
-		    var absId = normalize(idInfo.mod, id);
-		    var moduleInfo;
-		    var resInfo;
+		for (let item of deps) {
+			if (globalModules[item]) {
+				let module = globalModules[item];
+				// state == 2 不太可能...运行中或者factory涉及异步？
+ 				// state == 1 之前define过但还没触发,"需要手动触发一下"
+				// state == 0 异步模块被require过,正在异步,reDefine后会在define模块中触发 ,此处不要触发,静静等待即可
+				module.state < 3 ? module.caller.push(this) : this.depCount --
 
-		    if (absId && !BUILDIN_MODULE[absId]) {
-		        // 如果依赖是一个资源，将其信息添加到module.depRs
-		        //
-		        // module.depRs中的项有可能是重复的。
-		        // 在这个阶段，加载resource的module可能还未defined，
-		        // 导致此时resource id无法被normalize。
-		        //
-		        // 比如对a/b/c而言，下面几个resource可能指的是同一个资源：
-		        // - js!../name.js
-		        // - js!a/name.js
-		        // - ../../js!../name.js
-		        //
-		        // 所以加载资源的module ready时，需要遍历module.depRs进行处理
-		        if (idInfo.res) {
-		            resInfo = {
-		                id: depId,
-		                mod: absId,
-		                res: idInfo.res
-		            };
-		            depResources.push(depId);
-		            mod.depRs.push(resInfo);
-		        }
+				if(state == 1){
+					module.modPrepare()
+				}
+			} else {
+				//async module...
 
-		        // 对依赖模块的id normalize能保证正确性，在此处进行去重
-		        moduleInfo = mod.depMkv[absId];
-		        if (!moduleInfo) {
-		            moduleInfo = {
-		                id: idInfo.mod,
-		                absId: absId,
-		                hard: index < hardDependsCount
-		            };
-		            mod.depMs.push(moduleInfo);
-		            mod.depMkv[absId] = moduleInfo;
-		            requireModules.push(absId);
-		        }
-		    }
-		    else {
-		        moduleInfo = {absId: absId};
-		    }
+				//name first
+				//The purpose is to prevent multiple references in async stage
+				let module = new Module({
+					name:name,
+					state:0
+				})
+				module.caller.push(this)
+				globalModules[item] = module
 
-		    // 如果当前正在分析的依赖项是define中声明的，
-		    // 则记录到module.factoryDeps中
-		    // 在factory invoke前将用于生成invoke arguments
-		    if (index < hardDependsCount) {
-		        mod.factoryDeps.push(resInfo || moduleInfo);
-		    }
-		});
-		//MODULE_ANALYZED
-		modSetState(id, 2);
-		nativeAsyncRequire(requireModules);
+				//come on! reDefine me
+				module.modInit()
+			}
+		}
 	}
-	//if depCount == 0 
-	//	invokeFactory();
+	//	if depCount == 0 
+	//		invokeFactory();
 	invokeFactory(){
 
-        // 拼接factory invoke所需的arguments
-        var factoryReady = 1;
-        each(
-            mod.factoryDeps,
-            function (dep) {
-                var depId = dep.absId;
+		try {
+			// 调用factory函数初始化module
+			// 赋值this.export 或者return赋值给this.export
+			var factory = this.factory;
+			var exports = typeof factory === 'function'
+				? factory.apply('', modGetModulesExports(
+						this.deps,
+						{
+							require: this.require,
+							exports: this.exports,
+							module: this
+						}
+					))
+				: factory;
 
-                if (!BUILDIN_MODULE[depId]) {
-                    modTryInvokeFactory(depId);
-                    return (factoryReady = modIs(depId, MODULE_DEFINED));
-                }
-            }
-        );
+			if (exports != null) {
+				this.exports = exports;
+			}
+		}
 
-        if (factoryReady) {
-            try {
-                // 调用factory函数初始化module
-                var factory = mod.factory;
-                var exports = typeof factory === 'function'
-                    ? factory.apply(global, modGetModulesExports(
-                            mod.factoryDeps,
-                            {
-                                require: mod.require,
-                                exports: mod.exports,
-                                module: mod
-                            }
-                        ))
-                    : factory;
+		//MODULE_DEFINED
+		this.state =  3;
 
-                if (exports != null) {
-                    mod.exports = exports;
-                }
-            }
-
-            //MODULE_ANALYZED
-			modSetState(id, 2);
-        }
+		//clean caller
+		for(let item of this.caller){
+			item.depCount --
+		}
+		this.caller = []
+	}
+	notBuiltinDependce(){
+		let notBuiltinDeps = [];
+		for(let item of this.deps){
+			(['require', 'exports', 'module'].indexOf(item) == -1) && notBuiltinDeps.push(item)
+		}
+		return notBuiltinDeps
 	}
 }
