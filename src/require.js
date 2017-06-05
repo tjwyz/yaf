@@ -1,22 +1,25 @@
+import { unexpected } from './util.js';
 import { globalModules } from './store.js';
+import { Module } from './module.js';
 
 let require = (requireId, callback) =>{
+    let option;
     if (typeof requireId === 'string') {
-        let option = {
-            name:'IIFF'
+        option = {
+            name:'IIFF',
             deps:[requireId],
             factory:callback,
             state:-1
         };
     }else if (requireId instanceof Array) {
-        let option = {
+        option = {
             name:'IIFF',
             deps:requireId,
             factory:callback,
             state:-1
         };
     }else{
-        this.unexpected()
+        unexpected()
     }
     let module = new Module(option)
     module.modPrepare()

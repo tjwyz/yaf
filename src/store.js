@@ -8,4 +8,4 @@ let modGetModulesExports = (modules, buildinModules)=>{
 
 	return args;
 }
-export{ globalModules }
+export{ globalModules ,modGetModulesExports}

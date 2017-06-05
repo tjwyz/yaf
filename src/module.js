@@ -1,5 +1,5 @@
 import { require } from './require.js';
-import { globalModules } from './store.js';
+import { globalModules,modGetModulesExports } from './store.js';
 import { nativeAsyncRequire } from './async.js';
 
 export class Module {
@@ -19,19 +19,20 @@ export class Module {
 		
 		//count deps but not consume default dep(['require', 'exports', 'module'])
 		this.depCount = this.notBuiltinDeps.length;
+		this.depCountCenter;
 
 		this.exports = {};
 		this.require = require;
 
 
-		Object.defineProperty(this, 'depCount', {
+		Object.defineProperty(this, 'depCountCenter', {
 			get() {
-				return depCount;
+				return this.depCount;
 			},
 			set(newDepCount) {
-				depCount = newDepCount;
+				this.depCount = newDepCount;
 				if (newDepCount === 0) {
-					console.log(`模块${this.name}的依赖已经全部准备好`);
+					console.log(`module ${this.name} 's denpendce has been ready`);
 					this.invokeFactory();
 				}
 			}
@@ -75,16 +76,14 @@ export class Module {
 		if(!this.depCount){
 			this.invokeFactory()
 		}
-
 		for (let item of deps) {
 			if (globalModules[item]) {
 				let module = globalModules[item];
 				// state == 2 不太可能...运行中或者factory涉及异步？
  				// state == 1 之前define过但还没触发,"需要手动触发一下"
 				// state == 0 异步模块被require过,正在异步,reDefine后会在define模块中触发 ,此处不要触发,静静等待即可
-				module.state < 3 ? module.caller.push(this) : this.depCount --
-
-				if(state == 1){
+				module.state < 3 ? module.caller.push(this) : this.depCountCenter = this.depCount - 1
+				if(module.state == 1){
 					module.modPrepare()
 				}
 			} else {
@@ -107,7 +106,6 @@ export class Module {
 	//	if depCount == 0 
 	//		invokeFactory();
 	invokeFactory(){
-
 		try {
 			// 调用factory函数初始化module
 			// 赋值this.export 或者return赋值给this.export
@@ -122,10 +120,12 @@ export class Module {
 						}
 					))
 				: factory;
-
+			//none or undefined
 			if (exports != null) {
 				this.exports = exports;
 			}
+		} catch(e) {
+
 		}
 
 		//MODULE_DEFINED
@@ -133,7 +133,7 @@ export class Module {
 
 		//clean caller
 		for(let item of this.caller){
-			item.depCount --
+			item.depCountCenter = item.depCount - 1
 		}
 		this.caller = []
 	}

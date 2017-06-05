@@ -2,7 +2,7 @@ import buble from 'rollup-plugin-buble';
 
 export default {
   entry: 'src/index.js',
-  moduleName: 'acorn',
+  moduleName: 'yar',
   sourcemap: true,
   plugins: [
     buble({
@@ -11,7 +11,8 @@ export default {
       }
     })
   ],
+  
   targets: [
-    { dest: 'dist/acorn.js', format: 'umd' }
+    { dest: 'dist/yar.js', format: 'umd' }
   ]
 };
