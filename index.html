@@ -5,23 +5,6 @@
 	<script type="text/javascript" src="./dist/yar.js"></script>
 </head>
 <body>
-<script type="text/javascript">
-yar.define("woo",function(){
-	function ret(){
-		console.log("woooops!");
-	}
-	return ret
-});
-yar.define("sup",[],function(require, exports, module){
-	function ret(){
-		console.log("surprise!");
-	}
-	module.exports = ret
-});
-yar.require(["woo","sup"],function(woo,sup){
-	woo()
-	sup()
-})
-</script>
+<script type="text/javascript" src="./test/01.js"></script>
 </body>
 </html>

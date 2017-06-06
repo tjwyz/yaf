@@ -79,10 +79,11 @@ export class Module {
 		for (let item of deps) {
 			if (globalModules[item]) {
 				let module = globalModules[item];
-				// state == 2 不太可能...运行中或者factory涉及异步？
+				// state == 2 循环依赖(factory运行中)或者factory涉及异步...
+				// 			  此时module(依赖[])的exports可能有值(看写法...amd必没值,cmd可能有) 
  				// state == 1 之前define过但还没触发,"需要手动触发一下"
 				// state == 0 异步模块被require过,正在异步,reDefine后会在define模块中触发 ,此处不要触发,静静等待即可
-				module.state < 3 ? module.caller.push(this) : this.depCountCenter = this.depCount - 1
+				module.state < 2 ? module.caller.push(this) : this.depCountCenter = this.depCount - 1
 				if(module.state == 1){
 					module.modPrepare()
 				}
