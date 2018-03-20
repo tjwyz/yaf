@@ -7,5 +7,9 @@ let modGetModulesExports = (modules, buildinModules)=>{
 	});
 
 	return args;
-}
-export{ globalModules ,modGetModulesExports}
+};
+let loadingModules = [];
+let watting4preDefine = [];
+
+let requireConf = {};
+export{ globalModules ,modGetModulesExports, loadingModules, requireConf, watting4preDefine}

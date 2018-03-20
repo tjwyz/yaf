@@ -1,6 +1,6 @@
 import { unexpected } from './util.js';
 import { Module } from './module.js'
-import { globalModules } from './store.js'
+import { globalModules, watting4preDefine } from './store.js'
 let define = (name, deps, factory) => {
     if (typeof name === 'function' && !deps && !factory) {
         factory = name;
@@ -18,7 +18,11 @@ let define = (name, deps, factory) => {
     }
 
     if (!name) {
-        unexpected('must input a moduleId');
+        // unexpected('must input a moduleId');
+        watting4preDefine.push({
+            deps:deps,
+            factory:factory
+        })
     }
 	let option = {
 		name:name,
@@ -37,5 +41,8 @@ let define = (name, deps, factory) => {
 	let module = new Module(option);
 	globalModules[name] = module;
 
+};
+define.amd = {
+  multiversion: true
 };
 export { define }
