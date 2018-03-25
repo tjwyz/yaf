@@ -5,12 +5,7 @@ import { Module } from './module.js';
 let require = (requireId, callback) =>{
     let option;
     if (typeof requireId === 'string') {
-        option = {
-            name:'IIFF',
-            deps:[requireId],
-            factory:callback,
-            state:-1
-        };
+        return globalModules[requireId].exports;
     }else if (requireId instanceof Array) {
         option = {
             name:'IIFF',

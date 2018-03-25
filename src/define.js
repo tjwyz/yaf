@@ -43,6 +43,6 @@ let define = (name, deps, factory) => {
 
 };
 define.amd = {
-  multiversion: true
+    multiversion: true
 };
 export { define }

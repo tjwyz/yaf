@@ -76,6 +76,7 @@ export class Module {
 		if(!this.depCount){
 			this.invokeFactory()
 		}
+		
 		for (let item of deps) {
 			if (globalModules[item]) {
 				let module = globalModules[item];
@@ -84,6 +85,8 @@ export class Module {
  				// state == 1 之前define过但还没触发,"需要手动触发一下"
 				// state == 0 异步模块被require过,正在异步,reDefine后会在define模块中触发 ,此处不要触发,静静等待即可
 				module.state < 2 ? module.caller.push(this) : this.depCountCenter = this.depCount - 1
+
+				//正常被define的
 				if(module.state == 1){
 					module.modPrepare()
 				}
